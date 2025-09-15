@@ -361,10 +361,6 @@ class PathfindingGUI:
         if self.timer_id:
             self.root.after_cancel(self.timer_id)
 
-    # def update_directed(self):
-    #     self.graph.directed = self.directed_var.get()
-    #     self.draw_graph()
-
 
 if __name__ == "__main__":
     root = tk.Tk()
