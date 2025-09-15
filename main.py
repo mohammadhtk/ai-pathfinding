@@ -1,7 +1,5 @@
-from graph import Graph
-from algorithms.dfs import dfs
-from algorithms.ucs import ucs
-from algorithms.astar import astar
+import tkinter as tk
+from gui import *
 
 graph = Graph()
 for node in ["A", "B", "C", "D", "E"]:
@@ -32,3 +30,6 @@ print("Path:", path, "| Cost:", cost)
 print("\n--- A* ---")
 path, cost, steps = astar(graph, "A", "E", heuristic)
 print("Path:", path, "| Cost:", cost)
+root = tk.Tk()
+app = PathfindingGUI(root)
+root.mainloop()
