@@ -1,104 +1,111 @@
+# This script implements a GUI for visualizing pathfinding algorithms (BFS, DFS, UCS, A*) using Tkinter.
+
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import json
-from graph import Graph
-from algorithms.bfs import bfs
-from algorithms.dfs import dfs
-from algorithms.ucs import ucs
-from algorithms.astar import astar
+from graph import Graph  # Graph data structure
+from algorithms.bfs import bfs  # BFS algorithm
+from algorithms.dfs import dfs  # DFS algorithm
+from algorithms.ucs import ucs  # UCS algorithm
+from algorithms.astar import astar  # A* algorithm
 
+# Main class for the Pathfinding GUI
 class PathfindingGUI:
     def __init__(self, root):
+        # Initialize GUI window and state variables
         self.root = root
         self.root.title("Pathfinding Visualizer")
 
-        self.graph = Graph()
-        self.heuristic = {}
-        self.edge_click_nodes = []
-        self.node_counter = 1
-        self.steps = []
+        self.graph = Graph()           # Graph object storing nodes and edges
+        self.heuristic = {}            # Heuristic values for A* algorithm
+        self.edge_click_nodes = []     # Temporary storage for edge creation via canvas clicks
+        self.node_counter = 1          # Auto-increment node names
+        self.steps = []                # Stores intermediate steps of the algorithm
         self.current_step = 0
-        self.final_path = []
-        self.total_cost = 0
-        self.auto_running = False
-        self.timer_id = None
+        self.final_path = []           # Final path returned by algorithm
+        self.total_cost = 0            # Total cost of the path
+        self.auto_running = False      # Flag for automatic step execution
+        self.timer_id = None           # Timer ID for auto-run
 
-        self.setup_ui()
+        self.setup_ui()                # Setup GUI elements
 
     def setup_ui(self):
+        # Configure styles and layout of GUI
         style = ttk.Style()
         style.theme_use("clam")
 
+        # Top frame: Add edges manually
         frame_top = tk.Frame(self.root)
         frame_top.pack(pady=8)
 
         tk.Label(frame_top, text="Edge:").grid(row=0, column=0, padx=(0, 5))
-
         tk.Label(frame_top, text="From:").grid(row=0, column=1)
         self.edge_from = tk.Entry(frame_top, width=5)
         self.edge_from.grid(row=0, column=2, padx=(0, 10))
-
         tk.Label(frame_top, text="To:").grid(row=0, column=3)
         self.edge_to = tk.Entry(frame_top, width=5)
         self.edge_to.grid(row=0, column=4, padx=(0, 10))
-
         tk.Label(frame_top, text="Weight:").grid(row=0, column=5)
         self.edge_weight = tk.Entry(frame_top, width=5)
         self.edge_weight.grid(row=0, column=6, padx=(0, 10))
 
-        ttk.Button(frame_top, text="Add Edge", style="Modern.TButton", command=self.add_edge).grid(row=0, column=7,
-                                                                                                   padx=(0, 10))
+        ttk.Button(frame_top, text="Add Edge", style="Modern.TButton", command=self.add_edge).grid(
+            row=0, column=7, padx=(0, 10))
 
+        # Middle frame: Start/Goal node and algorithm selection
         frame_middle = tk.Frame(self.root)
         frame_middle.pack(pady=5)
-
-        tk.Label(frame_middle, text="Start:").grid(row=0, column=0, )
-        self.start_entry = tk.Entry(frame_middle, width=5, )
+        tk.Label(frame_middle, text="Start:").grid(row=0, column=0)
+        self.start_entry = tk.Entry(frame_middle, width=5)
         self.start_entry.grid(row=0, column=1, padx=(0, 10))
-
         tk.Label(frame_middle, text="Goal:").grid(row=0, column=2)
         self.goal_entry = tk.Entry(frame_middle, width=5)
         self.goal_entry.grid(row=0, column=3, padx=10)
 
         self.algorithm_var = tk.StringVar(value="BFS")
-        algo_menu = ttk.Combobox(frame_middle, textvariable=self.algorithm_var, values=["BFS", "DFS", "UCS", "A*"], state="readonly")
+        algo_menu = ttk.Combobox(frame_middle, textvariable=self.algorithm_var,
+                                 values=["BFS", "DFS", "UCS", "A*"], state="readonly")
         algo_menu.grid(row=0, column=4)
 
+        # Control buttons: Run, step forward/back, auto-run
         frame_controls = tk.Frame(self.root)
         frame_controls.pack(pady=10)
-
         tk.Button(frame_controls, text="Run", width=10, command=self.run_algorithm).grid(row=0, column=0, padx=5)
         tk.Button(frame_controls, text="← Previous", width=10, command=self.prev_step).grid(row=0, column=1, padx=5)
         tk.Button(frame_controls, text="Next →", width=10, command=self.next_step).grid(row=0, column=2, padx=5)
         tk.Button(frame_controls, text="▶ Auto Run", width=10, command=self.start_auto).grid(row=0, column=3, padx=5)
         tk.Button(frame_controls, text="⏹ Stop", width=10, command=self.stop_auto).grid(row=0, column=4, padx=5)
 
-
+        # Bottom frame: Graph management
         frame_bottom = tk.Frame(self.root)
         frame_bottom.pack(pady=5)
-
         tk.Button(frame_bottom, text="Reset Graph", command=self.reset_graph).grid(row=0, column=0, padx=5)
         tk.Button(frame_bottom, text="Save Graph", command=self.save_graph).grid(row=0, column=1, padx=5)
         tk.Button(frame_bottom, text="Load Graph", command=self.load_graph).grid(row=0, column=2, padx=5)
-        tk.Button(frame_bottom, text="Calculate h(n)", command=lambda: self.calculate_heuristic(self.goal_entry.get())).grid(row=0, column=3,
-                                                                                                                             padx=5)
+        tk.Button(frame_bottom, text="Calculate h(n)", command=lambda: self.calculate_heuristic(self.goal_entry.get())).grid(
+            row=0, column=3, padx=5)
 
+        # Canvas for visual graph drawing
         self.canvas = tk.Canvas(self.root, width=700, height=450, bg="white")
         self.canvas.pack()
-        self.canvas.bind("<Button-1>", self.canvas_click)
-        self.canvas.bind("<Button-3>", self.right_click_node)
+        self.canvas.bind("<Button-1>", self.canvas_click)      # Left click: Add/select node
+        self.canvas.bind("<Button-3>", self.right_click_node)  # Right click: Set heuristic
 
+        # Text output for step-by-step logs
         self.text_output = tk.Text(self.root, width=100, height=15, font=("Consolas", 10))
         self.text_output.pack(pady=10)
 
+    # Canvas click handler for adding/selecting nodes
     def canvas_click(self, event):
         clicked = self.get_node_at(event.x, event.y)
         if clicked:
+            # Select node for edge creation
             self.edge_click_nodes.append(clicked)
             if len(self.edge_click_nodes) == 2:
                 self.ask_edge_weight_and_add()
                 self.edge_click_nodes = []
         else:
+            # Add a new node
             name = f"N{self.node_counter}"
             self.node_counter += 1
             self.graph.add_node(name, (event.x, event.y))
@@ -106,6 +113,7 @@ class PathfindingGUI:
             self.draw_graph()
             self.text_output.insert(tk.END, f"Node '{name}' added at ({event.x}, {event.y})\n")
 
+    # Right-click handler: Set heuristic value
     def right_click_node(self, event):
         node = self.get_node_at(event.x, event.y)
         if node:
@@ -125,13 +133,15 @@ class PathfindingGUI:
                     messagebox.showerror("Error", "Invalid value")
             tk.Button(win, text="OK", command=confirm).pack(pady=5)
 
+    # Helper: Find node under given canvas coordinates
     def get_node_at(self, x, y):
         for node in self.graph.get_nodes():
             nx, ny = self.graph.get_position(node)
-            if (x - nx)**2 + (y - ny)**2 <= 15**2:
+            if (x - nx)**2 + (y - ny)**2 <= 15**2:  # Node radius detection
                 return node
         return None
 
+    # Prompt for edge weight and add edge to graph
     def ask_edge_weight_and_add(self):
         f, t = self.edge_click_nodes
         win = tk.Toplevel(self.root)
@@ -150,6 +160,7 @@ class PathfindingGUI:
                 messagebox.showerror("Error", "Invalid weight")
         tk.Button(win, text="Add", command=confirm).pack()
 
+    # Add edge using top-frame entry boxes
     def add_edge(self):
         f, t = self.edge_from.get(), self.edge_to.get()
         try:
@@ -164,6 +175,7 @@ class PathfindingGUI:
         self.draw_graph()
         self.text_output.insert(tk.END, f"Edge ({f} → {t}, w={w}) added\n")
 
+    # Run selected algorithm
     def run_algorithm(self):
         start, goal = self.start_entry.get(), self.goal_entry.get()
         algo = self.algorithm_var.get()
@@ -190,6 +202,7 @@ class PathfindingGUI:
         else:
             self.next_step()
 
+    # Step forward through algorithm execution
     def next_step(self):
         if self.current_step >= len(self.steps):
             self.text_output.insert(tk.END, f"\n🎯 Final Path: {self.final_path}\n💰 Total Cost: {self.total_cost}\n")
@@ -215,15 +228,17 @@ class PathfindingGUI:
         if self.auto_running:
             self.timer_id = self.root.after(800, self.next_step)
 
+    # Step backward
     def prev_step(self):
         if self.current_step <= 1:
             return
         self.current_step -= 2
         self.next_step()
 
+    # Draw the graph and highlight nodes/edges
     def draw_graph(self, highlights=None, final_path=None):
         self.canvas.delete("all")
-
+        # Draw edges first
         final_edges = set()
         if final_path and len(final_path) >= 2:
             for i in range(len(final_path) - 1):
@@ -238,15 +253,12 @@ class PathfindingGUI:
                 if edge_key in drawn_edges:
                     continue
                 drawn_edges.add(edge_key)
-
                 x2, y2 = self.graph.get_position(neighbor)
-
                 is_final = edge_key in final_edges
                 color = "red" if is_final else "gray"
                 width = 3 if is_final else 2
-
                 self.canvas.create_line(x, y, x2, y2, fill=color, width=width)
-
+                # Draw weight label
                 mx, my = (x + x2) // 2, (y + y2) // 2
                 dx, dy = x2 - x, y2 - y
                 length = max((dx ** 2 + dy ** 2) ** 0.5, 1)
@@ -254,6 +266,7 @@ class PathfindingGUI:
                 offset_y = dx / length * 10
                 self.canvas.create_text(mx + offset_x, my + offset_y, text=str(weight), font=("Arial", 9))
 
+        # Draw nodes
         for node in self.graph.get_nodes():
             x, y = self.graph.get_position(node)
             color = "lightblue"
@@ -273,11 +286,11 @@ class PathfindingGUI:
 
             self.canvas.create_oval(x - 15, y - 15, x + 15, y + 15, fill=color)
             self.canvas.create_text(x, y, text=node, font=("Arial", 10, "bold"))
-
-            # نمایش h(n)
+            # Display h(n)
             h_val = self.heuristic.get(node, 0)
             self.canvas.create_text(x, y + 20, text=f"h={h_val}", font=("Arial", 8), fill="gray")
 
+    # Calculate heuristic values for A* algorithm
     def calculate_heuristic(self, goal_node):
         if goal_node not in self.graph.nodes:
             messagebox.showerror("Error", "Invalid goal node")
@@ -305,6 +318,7 @@ class PathfindingGUI:
             tk.Radiobutton(win, text=opt, variable=mode_var, value=opt).pack(anchor=tk.W)
         tk.Button(win, text="Calculate", command=lambda: [compute(mode_var.get()), win.destroy()]).pack(pady=10)
 
+    # Save graph to JSON file
     def save_graph(self):
         data = {
             "nodes": {n: {"pos": self.graph.get_position(n), "h": self.heuristic.get(n, 0)} for n in self.graph.get_nodes()},
@@ -324,6 +338,7 @@ class PathfindingGUI:
                 json.dump(data, f, indent=4, ensure_ascii=False)
             self.text_output.insert(tk.END, f"Graph saved to: {file}\n")
 
+    # Load graph from JSON file
     def load_graph(self):
         file = filedialog.askopenfilename(filetypes=[("JSON", "*.json")])
         if not file: return
@@ -339,6 +354,7 @@ class PathfindingGUI:
         self.draw_graph()
         self.text_output.insert(tk.END, f"Graph loaded from: {file}\n")
 
+    # Reset the graph to empty state
     def reset_graph(self):
         self.graph = Graph()
         self.heuristic = {}
@@ -352,16 +368,19 @@ class PathfindingGUI:
         self.canvas.delete("all")
         self.text_output.delete("1.0", tk.END)
 
+    # Auto-run algorithm steps
     def start_auto(self):
         self.auto_running = True
         self.next_step()
 
+    # Stop auto-run
     def stop_auto(self):
         self.auto_running = False
         if self.timer_id:
             self.root.after_cancel(self.timer_id)
 
 
+# Run the GUI
 if __name__ == "__main__":
     root = tk.Tk()
     app = PathfindingGUI(root)
