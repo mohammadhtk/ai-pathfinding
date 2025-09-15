@@ -1,9 +1,20 @@
-import tkinter as tk
-from gui import *
+from graph import Graph
+from algorithms.dfs import dfs
+from algorithms.ucs import ucs
+from algorithms.astar import astar
 
+# Create graph
 graph = Graph()
-for node in ["A", "B", "C", "D", "E"]:
-    graph.add_node(node)
+positions = {
+    "A": (0, 0),
+    "B": (1, 0),
+    "C": (0, 1),
+    "D": (1, 1),
+    "E": (2, 1)
+}
+
+for node, pos in positions.items():
+    graph.add_node(node, pos)
 
 graph.add_edge("A", "B", 2)
 graph.add_edge("A", "C", 5)
@@ -11,6 +22,7 @@ graph.add_edge("B", "D", 4)
 graph.add_edge("C", "D", 1)
 graph.add_edge("D", "E", 3)
 
+# Heuristic for A*
 heuristic = {
     "A": 6,
     "B": 4,
@@ -19,17 +31,17 @@ heuristic = {
     "E": 0
 }
 
+# Test DFS
 print("\n--- DFS ---")
-path, cost, steps = dfs(graph, "A", "E")
+path, cost, _ = dfs(graph, "A", "E")
 print("Path:", path, "| Cost:", cost)
 
+# Test UCS
 print("\n--- UCS ---")
-path, cost, steps = ucs(graph, "A", "E")
+path, cost, _ = ucs(graph, "A", "E")
 print("Path:", path, "| Cost:", cost)
 
+# Test A*
 print("\n--- A* ---")
-path, cost, steps = astar(graph, "A", "E", heuristic)
+path, cost, _ = astar(graph, "A", "E", heuristic)
 print("Path:", path, "| Cost:", cost)
-root = tk.Tk()
-app = PathfindingGUI(root)
-root.mainloop()
